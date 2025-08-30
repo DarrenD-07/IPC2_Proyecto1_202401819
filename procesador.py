@@ -11,10 +11,7 @@ class SistemaAgricola:
 
     # Construcción de Patrones
     def _build(self, estacion: EstacionBase, tipo: str, sensores_ll: Lista):
-        """
-        Construye el patrón binario (0/1) de una estación para los sensores dados.
-        tipo = 'suelo' o 'cultivo'
-        """
+
         builder = ""
         first = True
         acc = estacion.freq_suelo if tipo == "suelo" else estacion.freq_cultivo
@@ -30,14 +27,16 @@ class SistemaAgricola:
         return builder
 
     def construir_patrones(self):
-        """
-        Genera patrones de suelo, cultivo y combinados para cada estación de cada campo.
-        """
+        print("→ Construyendo patrones de estaciones...")
         for campo in self.campos:
+            print(f"  ▸ Campo {campo.id}: {campo.nombre}")
             for est in campo.estaciones:
-                est.pat_suelo = self._build_pattern_for_station(est, "suelo", campo.sensores_suelo)
-                est.pat_cultivo = self._build_pattern_for_station(est, "cultivo", campo.sensores_cultivo)
+                est.pat_suelo = self._build(est, "suelo", campo.sensores_suelo)
+                est.pat_cultivo = self._build(est, "cultivo", campo.sensores_cultivo)
                 est.pat_combinado = est.pat_suelo + "|" + est.pat_cultivo
+                print(f"    - Estación {est.id}: patrón suelo={est.pat_suelo}, "
+                    f"cultivo={est.pat_cultivo}, combinado={est.pat_combinado}")
+
     # Reducción de Estaciones
     class Grupo:
         def __init__(self, patron):
@@ -45,10 +44,6 @@ class SistemaAgricola:
             self.miembros = Lista()
 
     def _sumar_frecuencias(self, estaciones_ll: Lista, tipo: str, sensores_ll: Lista):
-        """
-        Suma frecuencias de un grupo de estaciones para un conjunto de sensores.
-        Devuelve un LinkedList de FrequencyEntry.
-        """
         result = Lista()
         for s in sensores_ll:
             suma = 0
@@ -62,10 +57,7 @@ class SistemaAgricola:
         return result
 
     def reducir_estaciones(self, campo):
-        """
-        Agrupa estaciones del campo por su patrón combinado y devuelve
-        una lista enlazada de estaciones reducidas.
-        """
+        print(f"→ Reduciendo estaciones del campo {campo.id}...")
         grupos = Lista()
 
         # Clasificar estaciones en grupos
@@ -74,7 +66,9 @@ class SistemaAgricola:
             if g is None:
                 g = SistemaAgricola.Grupo(est.pat_combinado)
                 grupos.append(g)
+                print(f"  ▸ Nuevo grupo con patrón: {est.pat_combinado}")
             g.miembros.append(est)
+            print(f"    + Estación {est.id} añadida al grupo.")
 
         # Construir estaciones reducidas
         estaciones_reducidas = Lista()
@@ -99,23 +93,27 @@ class SistemaAgricola:
             est_r.freq_cultivo = self._sumar_frecuencias(g.miembros, "cultivo", campo.sensores_cultivo)
             estaciones_reducidas.append(est_r)
 
+            print(f"Estación reducida creada: {est_r.nombre}")
+
         return estaciones_reducidas
+
     # Control del procesamiento
     def procesar(self):
         if self.campos.head is None:
             print("No hay campos cargados.")
             return
-        print("Procesando datos... (patrones y reducción)")
+        print("INICIO DEL PROCESAMIENTO")
         self.construir_patrones()
 
         self._cache_reducidas = Lista()
         for campo in self.campos:
+            print(f"--- Procesando campo {campo.id} ({campo.nombre}) ---")
             reducidas = self.reducir_estaciones(campo)
             self._cache_reducidas.append((campo.id, reducidas))
         self._procesado = True
-        print("Procesamiento finalizado.")
+        print("=== PROCESAMIENTO FINALIZADO ===")
 
-    # Escritura de XML de salida (con indentación)
+    # Escritura de XML de salida
     def escribir_salida(self, ruta: str):
         if not self._procesado:
             print("Debe procesar los datos antes de escribir salida.")
@@ -173,7 +171,7 @@ class SistemaAgricola:
                         freq_el.text = str(entry.value)
                         sensor_el.append(freq_el)
 
-        # Guardar bien armado
+        # Guardar con pretty print
         xml_str = ET.tostring(root, encoding="utf-8")
         parsed = md.parseString(xml_str)
         with open(ruta, "w", encoding="utf-8") as f:
